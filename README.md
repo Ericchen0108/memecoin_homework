@@ -6,6 +6,7 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
 
 ## Project Structure
 
+```bash
 /memecoin_homework
 │
 ├── .env # Environment variables file
@@ -16,6 +17,8 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
 ├── docker-compose.yml # Docker Compose configuration file
 ├── Dockerfile # Dockerfile for building the application
 └── README.md # Project documentation file
+
+```
 
 ## Running the Application Locally
 
