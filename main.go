@@ -13,11 +13,12 @@ import (
 )
 
 type Memecoin struct {
-	ID              int       `json:"id" gorm:"primaryKey"`
-	Name            string    `json:"name" gorm:"unique; not null"`
-	Description     string    `json:"description"`
-	CreatedAt       time.Time `json:"created_at"`
-	PopularityScore int       `json:"popularity_score"`
+	ID              int        `json:"id" gorm:"primaryKey"`
+	Name            string     `json:"name" gorm:"unique; not null"`
+	Description     string     `json:"description"`
+	CreatedAt       time.Time  `json:"created_at"`
+	PopularityScore int        `json:"popularity_score"`
+	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
 }
 
 var db *gorm.DB
@@ -64,26 +65,18 @@ func createMemecoin(c *gin.Context) {
 		return
 	}
 
-	var existingMemeCoin Memecoin
-	err := db.Where("name = ?", memeCoin.Name).First(&existingMemeCoin).Error
-
-	if err != nil && err != gorm.ErrRecordNotFound {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Memecoin with this name already exists"})
-		return
-	}
-
 	memeCoin.CreatedAt = time.Now()
-	memeCoin.PopularityScore = 0
 
-	if err := db.Create(&memeCoin).Error; err != nil {
+	if err := db.Where("name = ?", memeCoin.Name).FirstOrCreate(&memeCoin).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	if memeCoin.ID != 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "Memecoin with this name already exists"})
+		return
+	}
+
 	c.JSON(http.StatusCreated, memeCoin)
 }
 
@@ -95,7 +88,11 @@ func getMemecoin(c *gin.Context) {
 	}
 
 	var memeCoin Memecoin
-	if err := db.First(&memeCoin, id).Error; err != nil {
+	if err := db.Where("id = ? AND deleted_at IS NULL", id).First(&memeCoin).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Memecoin not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -110,16 +107,7 @@ func updateMemecoin(c *gin.Context) {
 	}
 
 	var input struct {
-		Description     string     `json:"description"`
-		Name            *string    `json:"name,omitempty"`
-		CreatedAt       *time.Time `json:"created_at,omitempty"`
-		PopularityScore *int       `json:"popularity_score,omitempty"`
-	}
-
-	var memeCoin Memecoin
-	if err := db.First(&memeCoin, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		Description string `json:"description"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -127,14 +115,19 @@ func updateMemecoin(c *gin.Context) {
 		return
 	}
 
-	if input.Name != nil || input.CreatedAt != nil || input.PopularityScore != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "You can only update the description."})
+	result := db.Model(&Memecoin{}).Where("id = ? AND deleted_at IS NULL", id).Updates(Memecoin{Description: input.Description})
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Memecoin not found"})
 		return
 	}
 
-	memeCoin.Description = input.Description
-	db.Save(&memeCoin)
-	c.JSON(http.StatusOK, memeCoin)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Memecoin updated successfully."})
 }
 
 func deleteMemecoin(c *gin.Context) {
@@ -144,19 +137,20 @@ func deleteMemecoin(c *gin.Context) {
 		return
 	}
 
-	var memeCoin Memecoin
-	if err := db.First(&memeCoin, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	now := time.Now()
+	result := db.Model(&Memecoin{}).Where("id = ? AND deleted_at IS NULL", id).Update("deleted_at", now)
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Memecoin not found"})
 		return
 	}
 
-	if err := db.Delete(&memeCoin).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	c.Status(http.StatusOK)
-	c.JSON(http.StatusOK, gin.H{"message": "Memecoin deleted successfully!"})
+	c.JSON(http.StatusOK, gin.H{"message": "Memecoin is deleted."})
 }
 
 func pokeMemecoin(c *gin.Context) {
@@ -167,16 +161,31 @@ func pokeMemecoin(c *gin.Context) {
 	}
 
 	var memeCoin Memecoin
-	if err := db.First(&memeCoin, id).Error; err != nil {
+	tx := db.Begin()
+
+	if err := tx.Where("id = ? AND deleted_at IS NULL", id).First(&memeCoin).Error; err != nil {
+		tx.Rollback()
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Memecoin not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	memeCoin.PopularityScore++
-	if err := db.Save(&memeCoin).Error; err != nil {
+
+	if err := tx.Save(&memeCoin).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, memeCoin)
 }
 
@@ -186,9 +195,9 @@ func main() {
 
 	r.POST("/memecoins", createMemecoin)
 	r.GET("/memecoins/:id", getMemecoin)
-	r.PUT("/memecoins/:id", updateMemecoin)
+	r.PATCH("/memecoins/:id", updateMemecoin)
 	r.DELETE("/memecoins/:id", deleteMemecoin)
-	r.PATCH("/memecoins/:id", pokeMemecoin)
+	r.POST("/memecoins/:id/poke", pokeMemecoin)
 
 	r.Run(":8080")
 }
