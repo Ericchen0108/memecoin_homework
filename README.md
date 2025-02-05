@@ -6,18 +6,25 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
 
 ## Project Structure
 
-```bash
+```
 /memecoin_homework
 │
-├── .env # Environment variables file
-├── .gitignore # Git ignore file
-├── go.mod # Go module file
-├── go.sum # Go dependency file
-├── main.go # Main entry point of the application
-├── docker-compose.yml # Docker Compose configuration file
-├── Dockerfile # Dockerfile for building the application
-└── README.md # Project documentation file
-
+├── .env                     # Environment variables file
+├── .gitignore               # Git ignore file
+├── go.mod                   # Go module file
+├── go.sum                   # Go dependency file
+├── cmd/                     # Command files for the application
+│   └── memecoin/            # Main entry point of the application
+│       └── main.go          # Main application logic
+├── docker-compose.yml       # Docker Compose configuration file
+├── Dockerfile               # Dockerfile for building the application
+├── internal/                # Contains internal logic and services
+│   ├── model/               # Data models
+│   │   └── memecoin.go      # Memecoin data model
+│   └── service/             # Business logic services
+│       └── memecoin_service.go # Memecoin related service logic
+├── api/                     # API routes and handlers
+│   └── memecoin_api.go      # Memecoin API routes
 ```
 
 ## Running the Application Locally
@@ -48,14 +55,15 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
    ```
 6. Run the application:
    ```bash
-   go run main.go
+   cd ..
+   go run cmd/memecoin/main.go
    ```
 7. Access the API:
    - Create Memecoin: `POST /memecoins`
    - Get Memecoin: `GET /memecoins/:id`
-   - Update Memecoin: `PUT /memecoins/:id`
+   - Update Memecoin: `PATCH /memecoins/:id`
    - Delete Memecoin: `DELETE /memecoins/:id`
-   - Increase Memecoin Popularity: `PATCH /memecoins/:id`
+   - Increase Memecoin Popularity: `POST /memecoins/:id/poke`
 
 ## Running the Application in a Docker Container
 
@@ -82,9 +90,9 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
 5. Access the API:
    - Create Memecoin: `POST /memecoins`
    - Get Memecoin: `GET /memecoins/:id`
-   - Update Memecoin: `PUT /memecoins/:id`
+   - Update Memecoin: `PATCH /memecoins/:id`
    - Delete Memecoin: `DELETE /memecoins/:id`
-   - Increase Memecoin Popularity: `PATCH /memecoins/:id`
+   - Increase Memecoin Popularity: `POST /memecoins/:id/poke`
 
 ## Setup and Configuration
 
@@ -95,5 +103,5 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
 - Application environment variables can be configured in the `.env` file.
 - To clean up orphan containers, you can run:
   ```bash
-  docker-compose down --remove-orphans
+   docker-compose down --volumes --remove-orphans
   ```
