@@ -55,7 +55,7 @@ func main() {
 
 	service.SetDB(db)
 
-	api.SetupRoutes(r)
+	api.SetupRoutes(r, db)
 
 	r.Run(":8080")
 }

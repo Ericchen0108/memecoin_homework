@@ -25,6 +25,8 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
 │       └── memecoin_service.go # Memecoin related service logic
 ├── api/                     # API routes and handlers
 │   └── memecoin_api.go      # Memecoin API routes
+├── test/                    # Test files
+│   └── memecoin_service_test.go # Memecoin service tests
 ```
 
 ## Running the Application Locally
@@ -46,7 +48,6 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
    DB_PASSWORD=password
    DB_NAME=memecoins
    DB_HOST=localhost
-
    ```
 
 5. Start the PostgreSQL database:
@@ -65,6 +66,30 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
    - Delete Memecoin: `DELETE /memecoins/:id`
    - Increase Memecoin Popularity: `POST /memecoins/:id/poke`
 
+## Running Tests in local
+
+1. Ensure your PostgreSQL database is running:
+
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+2. Run all tests:
+
+   ```bash
+   # Run all tests in memecoin_service_test.go
+   go test -v ./test/memecoin_service_test.go
+   ```
+
+3. Run specific test functions:
+
+   ```bash
+   # Test Create operation
+   go test -v ./test/memecoin_service_test.go -run TestCreateMemecoin
+   ```
+
+Note: The tests require a PostgreSQL database connection. Make sure your database is running and the connection details in the test file match your environment (DB_HOST should be 'localhost').
+
 ## Running the Application in a Docker Container
 
 1. Ensure you have Docker and Docker Compose installed.
@@ -80,7 +105,6 @@ This is a Memecoin API built using Go and Gin as the ORM, supporting PostgreSQL 
    DB_PASSWORD=password
    DB_NAME=memecoins
    DB_HOST=postgres
-
    ```
 
 4. Start the application and database:
